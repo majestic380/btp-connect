@@ -151,6 +151,11 @@ function startBackendBestEffort() {
 
   console.log(`[BTP Connect] Starting backend from: ${actualEntry}`);
 
+  // Générer des secrets JWT par défaut si non définis
+  const crypto = require('crypto');
+  const defaultJwtAccess = crypto.randomBytes(32).toString('hex');
+  const defaultJwtRefresh = crypto.randomBytes(32).toString('hex');
+
   backendProc = spawn(process.execPath, [actualEntry], {
     cwd: actualDir,
     env: {
@@ -158,7 +163,16 @@ function startBackendBestEffort() {
       PORT: String(currentConfig.backendPort),
       HOST: bindHost,
       BTP_MODE: currentConfig.mode,
-      DATABASE_URL: `file:${path.join(actualDir, 'prisma', 'dev.db')}`,
+      NODE_ENV: process.env.NODE_ENV || 'development',
+      // JWT Secrets (générés automatiquement si non définis)
+      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || defaultJwtAccess,
+      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || defaultJwtRefresh,
+      JWT_ACCESS_TTL: process.env.JWT_ACCESS_TTL || '15m',
+      JWT_REFRESH_TTL: process.env.JWT_REFRESH_TTL || '7d',
+      // Database
+      DATABASE_URL: process.env.DATABASE_URL || `file:${path.join(actualDir, 'prisma', 'dev.db')}`,
+      // CORS
+      CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
     },
     stdio: "inherit"
   });
