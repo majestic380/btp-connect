@@ -1,0 +1,21 @@
+[2026-01-08 00:00] INIT - Standalone multi-modes (Lot A) - A1/A2 baseline package
+[2026-01-08 00:00] CHANGE - A3 - Backend bind host controlled by HOST env (default 127.0.0.1). CORS defaults tightened for local bind; LAN bind allowed only when mode=lan and lanExpose=true.
+[2026-01-08T00:34:32Z] A5: added standalone smoke QA scripts (qa/standalone_modes.ps1), deterministic userData override (BTP_USERDATA_DIR) in main.js, npm scripts qa:standalone:*, and GitHub Actions workflow for standalone smoke.
+
+[2026-01-08] LOT B / B1 - Integrated mobile-friendly UI (ecosystem_27 responsive sidebar toggle) into A5 base; added PWA artifacts (manifest, service worker, icons) served by backend for LAN/Cloud; guarded SW registration for Electron file://; added backend routes /, /manifest.webmanifest, /sw.js, /icons/*.png.
+
+[2026-01-08 01:32:23] LOT B / B2 - Ajout sélecteur d'API PWA (LAN/Cloud) avec healthcheck /health, persistance locale (btp-api-url) et redirection vers la cible. Modif: backend/src/static/pwa/index.html.
+
+[2026-01-08 19:00] CHANGE - LOT B / B3 - PWA offline controle: ajout offline.html + SW v3 (cache statique only, API network-only) - fichiers: backend/src/static/pwa/sw.js, offline.html - TEST: mode avion iOS => offline.html, online => UI OK
+[2026-01-08 01:36] CHANGE - LOT B / B3.1 - ajout bannière réseau (online/offline + healthcheck) dans PWA (index.html)
+
+[2026-01-08 01:40] CHANGE - LOT B / B3.2 - bannière réseau affiche l'URL API active (localStorage btp-api-url ou origin) dans la PWA (backend/src/static/pwa/index.html)
+2026-01-08T01:47:24Z | META | LOT 4/3/1/5/2 | Ajout docs audit/release/signing/cloud + UX hardening minimal
+
+[2026-01-08] NEXT: 4/3/1/5/2 - Added docs (audit/release/signing/cloud) + checksum scripts + deploy templates.
+
+[2026-01-08] NEXT (4/3/1/5/2) validé + RC/CI release/Deploy :
+- RC v0.2.0-rc.1 (release/)
+- GitHub Actions release.yml (build win+mac, checksums, GitHub Release)
+- Deploy cloud: deploy/.env.prod.example + quickstart docs
+

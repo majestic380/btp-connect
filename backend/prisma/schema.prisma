@@ -1,0 +1,1099 @@
+// ============================================
+// 🗄️ BTP CONNECT v9.0 - SCHEMA PRISMA (MySQL/MariaDB)
+// Architecture Unifiée : Desktop (Electron) + Mobile (Expo)
+// Date : 17/01/2026
+// DATABASE: MySQL/MariaDB
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS MySQL
+// ============================================
+
+enum Role {
+  ADMIN
+  CONDUCTEUR
+  COMPTABLE
+  DIRECTION
+}
+
+enum TypeMarche {
+  PUBLIC
+  PRIVE
+}
+
+enum StatutMarche {
+  EN_COURS
+  RECEPTIONNE
+  SOLDE
+  LITIGE
+}
+
+enum StatutSituation {
+  BROUILLON
+  SOUMISE
+  VALIDEE_MOE
+  REFUSEE_MOE
+  VALIDEE_MOA
+  REFUSEE_MOA
+  PAYEE
+}
+
+enum TypeValidation {
+  MOE
+  MOA
+}
+
+enum StatutValidation {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+enum TypeOS {
+  DEMARRAGE
+  INTERRUPTION
+  REPRISE
+  PROLONGATION
+  RECEPTION
+}
+
+enum TypeFTM {
+  TS_PLUS
+  TS_MOINS
+  TP
+  MOD
+}
+
+enum StatutFTM {
+  DEMANDE
+  DEVIS_EN_COURS
+  DEVIS_RECU
+  VALIDE_MOE
+  VALIDE_MOA
+  REFUSE
+  AVENANT_EMIS
+}
+
+enum ChorusStatut {
+  NON_ENVOYE
+  EN_COURS
+  DEPOSE
+  VALIDE
+  REJETE
+  PAYE
+}
+
+enum VisaStatut {
+  ATT
+  VSO
+  VAO
+  REF
+}
+
+enum TypeDocument {
+  PDF
+  DWG
+  DXF
+  IFC
+  RVT
+  IMAGE
+  EXCEL
+  WORD
+  AUTRE
+}
+
+enum TypeAnnotation {
+  ISSUE
+  COMMENT
+  REQUEST
+}
+
+enum PrioriteAnnotation {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum StatutAnnotation {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum StatutParticipant {
+  PRESENT
+  ABSENT
+  EXCUSE
+}
+
+enum StatutAction {
+  A_FAIRE
+  EN_COURS
+  FAIT
+  ANNULE
+}
+
+enum TypePointSecurite {
+  SECURITE
+  ENVIRONNEMENT
+}
+
+enum TypePrix {
+  FERME
+  REVISABLE
+  QUANTITATIF
+}
+
+enum StatutConsultation {
+  BROUILLON
+  ENVOYEE
+  EN_COURS
+  CLOTUREE
+  ATTRIBUEE
+  ANNULEE
+}
+
+enum StatutReponseAO {
+  NON_ENVOYE
+  ENVOYE
+  LU
+  REPONDU
+  DECLINE
+}
+
+enum FeaturePlatform {
+  ALL
+  DESKTOP
+  MOBILE
+  WEB
+}
+
+enum FeatureCategory {
+  MODULE
+  FEATURE
+  UI
+  BETA
+  ADMIN
+}
+
+// ============================================
+// MODÈLES DE BASE
+// ============================================
+
+model Entreprise {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  nom       String   @db.VarChar(255)
+  siret     String?  @db.VarChar(50)
+  adresse   String?  @db.VarChar(500)
+  cp        String?  @db.VarChar(10)
+  ville     String?  @db.VarChar(100)
+  tel       String?  @db.VarChar(20)
+  email     String?  @db.VarChar(255)
+  logo      String?  @db.LongText
+  plan      String?  @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  sousTraitants SousTraitant[]
+  chantiers     Chantier[]
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.VarChar(36)
+  entrepriseId String     @db.VarChar(36)
+  entreprise   Entreprise @relation(fields: [entrepriseId], references: [id], onDelete: Cascade)
+
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @db.VarChar(255)
+  role         Role     @default(CONDUCTEUR)
+  nom          String?  @db.VarChar(255)
+  prenom       String?  @db.VarChar(255)
+  telephone    String?  @db.VarChar(20)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens       RefreshToken[]
+  documentsDeposes    GedDocument[]          @relation("Depositaire")
+  documentsVises      GedDocument[]          @relation("Viseur")
+  validations         ValidationSituation[]
+  annotationsCreees   AnnotationBCF[]
+  notesCreees         NoteFournisseur[]
+  evaluationsCreees   EvaluationFournisseur[]
+
+  @@index([entrepriseId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.VarChar(36)
+  userId    String    @db.VarChar(36)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @db.VarChar(255)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+model SousTraitant {
+  id           String     @id @default(uuid()) @db.VarChar(36)
+  entrepriseId String     @db.VarChar(36)
+  entreprise   Entreprise @relation(fields: [entrepriseId], references: [id], onDelete: Cascade)
+
+  nom                 String   @db.VarChar(255)
+  siret               String?  @db.VarChar(50)
+  tvaIntracommunautaire String? @db.VarChar(50)
+  metier              String?  @db.VarChar(100)
+  email               String?  @db.VarChar(255)
+  tel                 String?  @db.VarChar(20)
+  adresse             String?  @db.VarChar(500)
+  cp                  String?  @db.VarChar(10)
+  ville               String?  @db.VarChar(100)
+  pays                String?  @default("France") @db.VarChar(100)
+  note                Float?
+  dansAnnuairePrivate Boolean  @default(false)
+  ajouteManuellement  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  contrats              ContratST[]
+  marches               Marche[]
+  documents             DocumentST[]
+  consultationsRecues   ConsultationEntreprise[]
+  notes                 NoteFournisseur[]
+  evaluations           EvaluationFournisseur[]
+
+  @@index([entrepriseId])
+}
+
+model Chantier {
+  id           String     @id @default(uuid()) @db.VarChar(36)
+  entrepriseId String     @db.VarChar(36)
+  entreprise   Entreprise @relation(fields: [entrepriseId], references: [id], onDelete: Cascade)
+
+  nom              String    @db.VarChar(255)
+  reference        String?   @db.VarChar(100)
+  adresse          String?   @db.VarChar(500)
+  cp               String?   @db.VarChar(10)
+  ville            String?   @db.VarChar(100)
+  client           String?   @db.VarChar(255)
+  clientSiret      String?   @db.VarChar(50)
+  clientAdresse    String?   @db.VarChar(500)
+  dateDebut        DateTime?
+  dateFinPrevue    DateTime?
+  dateFinReelle    DateTime?
+  montantMarche    Decimal?  @db.Decimal(15, 2)
+  statut           String    @default("en_cours") @db.VarChar(50)
+  avancement       Int       @default(0)
+  marchePublic     Boolean   @default(false)
+  codeService      String?   @db.VarChar(100)
+  numeroEngagement String?   @db.VarChar(100)
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  contrats         ContratST[]
+  marches          Marche[]
+  gedDocuments     GedDocument[]
+  documentPlans    DocumentPlan[]
+  comptesRendus    CompteRendu[]
+  consultations    Consultation[]
+  situations       SituationAncien[]
+  factures         Facture[]
+
+  @@index([entrepriseId])
+}
+
+model SituationAncien {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  chantierId  String   @db.VarChar(36)
+  chantier    Chantier @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+  
+  stId        String?  @db.VarChar(36)
+  mois        DateTime
+  montantHT   Decimal  @db.Decimal(15, 2)
+  tva         Decimal  @default(20) @db.Decimal(5, 2)
+  statut      String   @default("en_attente") @db.VarChar(50)
+  fichierUrl  String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+
+  @@map("Situation_old")
+  @@index([chantierId])
+}
+
+model ContratST {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  chantierId     String       @db.VarChar(36)
+  chantier       Chantier     @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+  sousTraitantId String       @db.VarChar(36)
+  sousTraitant   SousTraitant @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade)
+
+  montantHT      Decimal      @db.Decimal(15, 2)
+  dateDebut      DateTime
+  dateFin        DateTime?
+  objet          String?      @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@index([chantierId])
+  @@index([sousTraitantId])
+}
+
+model DocumentST {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  sousTraitantId String       @db.VarChar(36)
+  sousTraitant   SousTraitant @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade)
+
+  type           String       @db.VarChar(100)
+  nom            String       @db.VarChar(255)
+  fichierUrl     String?      @db.VarChar(500)
+  dateExpiration DateTime?
+  statut         String       @default("valide") @db.VarChar(50)
+  createdAt      DateTime     @default(now())
+
+  @@index([sousTraitantId])
+}
+
+model Facture {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  chantierId String   @db.VarChar(36)
+  chantier   Chantier @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+
+  numero     String   @db.VarChar(100)
+  type       String   @db.VarChar(50)
+  stId       String?  @db.VarChar(36)
+  montantHT  Decimal  @db.Decimal(15, 2)
+  tva        Decimal  @default(20) @db.Decimal(5, 2)
+  dateFacture DateTime
+  dateEcheance DateTime?
+  statut     String   @default("en_attente") @db.VarChar(50)
+  fichierUrl String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+
+  @@index([chantierId])
+}
+
+// ============================================
+// MODULE 1 : SUIVI FINANCIER DES MARCHÉS
+// ============================================
+
+model Marche {
+  id                  String       @id @default(uuid()) @db.VarChar(36)
+  chantierId          String       @db.VarChar(36)
+  chantier            Chantier     @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+  sousTraitantId      String       @db.VarChar(36)
+  sousTraitant        SousTraitant @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade)
+
+  reference           String       @unique @db.VarChar(100)
+  type                TypeMarche   @default(PRIVE)
+  objet               String       @db.Text
+  lot                 String?      @db.VarChar(100)
+  
+  montantInitialHT    Decimal      @db.Decimal(15, 2)
+  montantActuelHT     Decimal      @db.Decimal(15, 2)
+  montantFactureHT    Decimal      @default(0) @db.Decimal(15, 2)
+  
+  dateNotification    DateTime
+  delaiExecution      Int
+  dateFinPrevue       DateTime
+  dateReception       DateTime?
+  
+  tauxRG              Decimal      @default(5.00) @db.Decimal(5, 2)
+  cautionBancaire     Boolean      @default(false)
+  montantCaution      Decimal?     @db.Decimal(15, 2)
+  dateLiberationRG    DateTime?
+  
+  tauxPenaliteJour    Decimal      @default(0.0005) @db.Decimal(8, 6)
+  plafondPenalites    Decimal      @default(5.00) @db.Decimal(5, 2)
+  
+  statut              StatutMarche @default(EN_COURS)
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  lignesDPGF          LigneDPGF[]
+  avenants            Avenant[]
+  situations          Situation[]
+  ordresService       OrdreService[]
+  ftm                 FicheTravauxModificatifs[]
+  dgd                 DGD?
+
+  @@index([chantierId])
+  @@index([sousTraitantId])
+  @@index([reference])
+}
+
+model LigneDPGF {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  marcheId            String   @db.VarChar(36)
+  marche              Marche   @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+
+  numero              String   @db.VarChar(50)
+  designation         String   @db.Text
+  unite               String   @db.VarChar(50)
+  quantite            Decimal  @db.Decimal(15, 4)
+  prixUnitaireHT      Decimal  @db.Decimal(15, 4)
+  montantHT           Decimal  @db.Decimal(15, 2)
+  lot                 String?  @db.VarChar(100)
+  chapitre            String?  @db.VarChar(100)
+  ordre               Int      @default(0)
+
+  lignesSituation     LigneSituation[]
+
+  @@index([marcheId])
+  @@index([numero])
+}
+
+model Avenant {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  marcheId            String   @db.VarChar(36)
+  marche              Marche   @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+
+  numero              Int
+  objet               String   @db.Text
+  montantHT           Decimal  @db.Decimal(15, 2)
+  dateSignature       DateTime
+  impactDelai         Int      @default(0)
+  motif               String?  @db.Text
+  
+  ftmId               String?  @unique @db.VarChar(36)
+  ftmOrigine          FicheTravauxModificatifs? @relation(fields: [ftmId], references: [id])
+  
+  createdAt           DateTime @default(now())
+
+  @@index([marcheId])
+}
+
+model Situation {
+  id                  String          @id @default(uuid()) @db.VarChar(36)
+  marcheId            String          @db.VarChar(36)
+  marche              Marche          @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+
+  numero              Int
+  mois                DateTime
+  dateDebut           DateTime
+  dateFin             DateTime
+  
+  montantTravaux      Decimal         @db.Decimal(15, 2)
+  montantCumule       Decimal         @db.Decimal(15, 2)
+  retenueGarantie     Decimal         @db.Decimal(15, 2)
+  acomptePrecedent    Decimal         @db.Decimal(15, 2)
+  penalites           Decimal         @default(0) @db.Decimal(15, 2)
+  montantNetHT        Decimal         @db.Decimal(15, 2)
+  tauxTVA             Decimal         @default(20) @db.Decimal(5, 2)
+  montantTTC          Decimal         @db.Decimal(15, 2)
+  
+  statut              StatutSituation @default(BROUILLON)
+  
+  fichierSituationUrl String?         @db.VarChar(500)
+  fichierFactureUrl   String?         @db.VarChar(500)
+  
+  chorusStatut        ChorusStatut    @default(NON_ENVOYE)
+  chorusNumero        String?         @db.VarChar(100)
+  chorusDateEnvoi     DateTime?
+  chorusDatePaiement  DateTime?
+  
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  lignes              LigneSituation[]
+  validations         ValidationSituation[]
+
+  @@unique([marcheId, numero])
+  @@index([marcheId])
+  @@index([statut])
+}
+
+model LigneSituation {
+  id                  String      @id @default(uuid()) @db.VarChar(36)
+  situationId         String      @db.VarChar(36)
+  situation           Situation   @relation(fields: [situationId], references: [id], onDelete: Cascade)
+  ligneDPGFId         String      @db.VarChar(36)
+  ligneDPGF           LigneDPGF   @relation(fields: [ligneDPGFId], references: [id], onDelete: Cascade)
+
+  quantiteMois        Decimal     @db.Decimal(15, 4)
+  quantiteCumul       Decimal     @db.Decimal(15, 4)
+  montantMois         Decimal     @db.Decimal(15, 2)
+  montantCumul        Decimal     @db.Decimal(15, 2)
+  commentaire         String?     @db.Text
+
+  @@index([situationId])
+  @@index([ligneDPGFId])
+}
+
+model ValidationSituation {
+  id                  String          @id @default(uuid()) @db.VarChar(36)
+  situationId         String          @db.VarChar(36)
+  situation           Situation       @relation(fields: [situationId], references: [id], onDelete: Cascade)
+
+  type                TypeValidation
+  statut              StatutValidation
+  commentaire         String?         @db.Text
+  userId              String          @db.VarChar(36)
+  validePar           User            @relation(fields: [userId], references: [id])
+  dateValidation      DateTime        @default(now())
+
+  @@index([situationId])
+  @@index([userId])
+}
+
+model OrdreService {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  marcheId            String   @db.VarChar(36)
+  marche              Marche   @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+
+  numero              Int
+  type                TypeOS
+  objet               String   @db.Text
+  description         String?  @db.Text
+  dateEmission        DateTime
+  dateEffet           DateTime
+  impactDelai         Int      @default(0)
+  fichierUrl          String?  @db.VarChar(500)
+  
+  createdAt           DateTime @default(now())
+
+  @@unique([marcheId, numero])
+  @@index([marcheId])
+}
+
+model FicheTravauxModificatifs {
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  marcheId            String    @db.VarChar(36)
+  marche              Marche    @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+
+  numero              Int
+  type                TypeFTM
+  objet               String    @db.Text
+  description         String    @db.Text
+  justification       String?   @db.Text
+  
+  montantPropose      Decimal?  @db.Decimal(15, 2)
+  montantValide       Decimal?  @db.Decimal(15, 2)
+  impactDelai         Int       @default(0)
+  
+  statut              StatutFTM @default(DEMANDE)
+  
+  fichierDevisUrl     String?   @db.VarChar(500)
+  fichierValidationUrl String?  @db.VarChar(500)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  avenantGenere       Avenant?
+
+  @@unique([marcheId, numero])
+  @@index([marcheId])
+  @@index([statut])
+}
+
+model DGD {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  marcheId            String   @unique @db.VarChar(36)
+  marche              Marche   @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+
+  montantInitial      Decimal  @db.Decimal(15, 2)
+  montantAvenants     Decimal  @db.Decimal(15, 2)
+  montantFinal        Decimal  @db.Decimal(15, 2)
+  montantFacture      Decimal  @db.Decimal(15, 2)
+  retenueGarantie     Decimal  @db.Decimal(15, 2)
+  penalitesRetard     Decimal  @default(0) @db.Decimal(15, 2)
+  soldeAPayer         Decimal  @db.Decimal(15, 2)
+  
+  dateEtablissement   DateTime
+  dateValidation      DateTime?
+  valide              Boolean  @default(false)
+  fichierUrl          String?  @db.VarChar(500)
+  
+  createdAt           DateTime @default(now())
+}
+
+// ============================================
+// MODULE 2 : COMPTE RENDU DE CHANTIER
+// ============================================
+
+model CompteRendu {
+  id                    String    @id @default(uuid()) @db.VarChar(36)
+  chantierId            String    @db.VarChar(36)
+  chantier              Chantier  @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+
+  numero                Int
+  dateReunion           DateTime
+  heureDebut            String?   @db.VarChar(10)
+  heureFin              String?   @db.VarChar(10)
+  lieu                  String?   @db.VarChar(255)
+  objetReunion          String?   @db.Text
+  
+  ordreJour             String?   @db.Text
+  observationsGenerales String?   @db.Text
+  
+  dateProchaineReunion  DateTime?
+  prochainCR            DateTime?
+  
+  meteo                 String?   @db.VarChar(50)
+  temperature           Int?
+  effectifChantier      Int?
+  
+  fichierPdfUrl         String?   @db.VarChar(500)
+  diffuse               Boolean   @default(false)
+  dateDiffusion         DateTime?
+  dateEnvoi             DateTime?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  participants          ParticipantCR[]
+  actions               ActionCR[]
+  avancements           AvancementLot[]
+  pointsSecurite        PointSecurite[]
+  ecartsMarche          EcartMarche[]
+
+  @@unique([chantierId, numero])
+  @@index([chantierId])
+}
+
+model ParticipantCR {
+  id              String            @id @default(uuid()) @db.VarChar(36)
+  compteRenduId   String            @db.VarChar(36)
+  compteRendu     CompteRendu       @relation(fields: [compteRenduId], references: [id], onDelete: Cascade)
+
+  nom             String            @db.VarChar(255)
+  societe         String            @db.VarChar(255)
+  role            String?           @db.VarChar(100)
+  email           String?           @db.VarChar(255)
+  telephone       String?           @db.VarChar(20)
+  statut          StatutParticipant
+
+  @@index([compteRenduId])
+}
+
+model EcartMarche {
+  id              String      @id @default(uuid()) @db.VarChar(36)
+  compteRenduId   String      @db.VarChar(36)
+  compteRendu     CompteRendu @relation(fields: [compteRenduId], references: [id], onDelete: Cascade)
+
+  lot             String      @db.VarChar(100)
+  entreprise      String?     @db.VarChar(255)
+  description     String      @db.Text
+  impactFinancier Decimal?    @db.Decimal(15, 2)
+  impactDelai     Int?
+  statut          String      @db.VarChar(50)
+  actionRequise   String?     @db.Text
+  
+  createdAt       DateTime    @default(now())
+
+  @@index([compteRenduId])
+}
+
+model ActionCR {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  compteRenduId   String       @db.VarChar(36)
+  compteRendu     CompteRendu  @relation(fields: [compteRenduId], references: [id], onDelete: Cascade)
+
+  numero          Int
+  description     String       @db.Text
+  responsable     String       @db.VarChar(255)
+  societe         String?      @db.VarChar(255)
+  echeance        DateTime
+  priorite        String?      @db.VarChar(50)
+  statut          StatutAction @default(A_FAIRE)
+  commentaire     String?      @db.Text
+  dateResolution  DateTime?
+  actionPrecedenteId String?   @db.VarChar(36)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([compteRenduId])
+  @@index([responsable])
+  @@index([statut])
+}
+
+model AvancementLot {
+  id              String      @id @default(uuid()) @db.VarChar(36)
+  compteRenduId   String      @db.VarChar(36)
+  compteRendu     CompteRendu @relation(fields: [compteRenduId], references: [id], onDelete: Cascade)
+
+  lot             String      @db.VarChar(100)
+  entreprise      String      @db.VarChar(255)
+  pourcentage     Int
+  conformePlanning Boolean    @default(true)
+  retardJours     Int         @default(0)
+  commentaire     String?     @db.Text
+  jalonActuel     String?     @db.VarChar(255)
+  jalonSuivant    String?     @db.VarChar(255)
+  dateJalonSuivant DateTime?
+
+  @@index([compteRenduId])
+}
+
+model PointSecurite {
+  id              String           @id @default(uuid()) @db.VarChar(36)
+  compteRenduId   String           @db.VarChar(36)
+  compteRendu     CompteRendu      @relation(fields: [compteRenduId], references: [id], onDelete: Cascade)
+
+  type            TypePointSecurite
+  categorie       String?          @db.VarChar(100)
+  libelle         String           @db.Text
+  conforme        Boolean
+  observation     String?          @db.Text
+  actionCorrective String?         @db.Text
+  responsable     String?          @db.VarChar(255)
+  echeance        DateTime?
+
+  @@index([compteRenduId])
+}
+
+// ============================================
+// MODULE 3 : GED & VISIONNEUSE BIM/PLANS
+// ============================================
+
+model GedDocument {
+  id              String      @id @default(uuid()) @db.VarChar(36)
+  chantierId      String      @db.VarChar(36)
+  chantier        Chantier    @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+
+  code            String      @db.VarChar(100)
+  nom             String      @db.VarChar(255)
+  description     String?     @db.Text
+  lot             String?     @db.VarChar(100)
+  typeDoc         String?     @db.VarChar(50)
+  indice          String      @default("A") @db.VarChar(10)
+  version         Int         @default(1)
+  
+  fichierUrl      String      @db.VarChar(500)
+  fichierNom      String      @db.VarChar(255)
+  tailleFichier   Int
+  mimeType        String?     @db.VarChar(100)
+  
+  visaStatut      VisaStatut  @default(ATT)
+  visaCommentaire String?     @db.Text
+  visaDate        DateTime?
+  viseurId        String?     @db.VarChar(36)
+  viseur          User?       @relation("Viseur", fields: [viseurId], references: [id])
+  
+  depositaireId   String?     @db.VarChar(36)
+  depositaire     User?       @relation("Depositaire", fields: [depositaireId], references: [id])
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([chantierId, code, indice])
+  @@index([chantierId])
+  @@index([code])
+  @@index([visaStatut])
+}
+
+model DocumentPlan {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  chantierId      String       @db.VarChar(36)
+  chantier        Chantier     @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+
+  nom             String       @db.VarChar(255)
+  codification    String?      @db.VarChar(100)
+  indice          String       @default("A") @db.VarChar(10)
+  lot             String?      @db.VarChar(100)
+  niveau          String?      @db.VarChar(50)
+  zone            String?      @db.VarChar(50)
+  type            TypeDocument @default(PDF)
+  
+  fichierUrl      String       @db.VarChar(500)
+  fichierNom      String       @db.VarChar(255)
+  tailleFichier   Int
+  
+  coordOrigineX   Float?
+  coordOrigineY   Float?
+  coordOrigineZ   Float?
+  echelle         Float?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  annotations     AnnotationBCF[]
+
+  @@index([chantierId])
+  @@index([codification])
+}
+
+model AnnotationBCF {
+  id              String            @id @default(uuid()) @db.VarChar(36)
+  documentPlanId  String            @db.VarChar(36)
+  documentPlan    DocumentPlan      @relation(fields: [documentPlanId], references: [id], onDelete: Cascade)
+
+  guid            String            @unique @default(uuid()) @db.VarChar(36)
+  type            TypeAnnotation    @default(ISSUE)
+  titre           String            @db.VarChar(255)
+  description     String?           @db.Text
+  priorite        PrioriteAnnotation @default(NORMAL)
+  statut          StatutAnnotation  @default(OPEN)
+  
+  positionX       Float?
+  positionY       Float?
+  positionZ       Float?
+  
+  cameraX         Float?
+  cameraY         Float?
+  cameraZ         Float?
+  cameraDirectionX Float?
+  cameraDirectionY Float?
+  cameraDirectionZ Float?
+  
+  assigneA        String?           @db.VarChar(255)
+  assigneEmail    String?           @db.VarChar(255)
+  dueDate         DateTime?
+  
+  snapshotUrl     String?           @db.VarChar(500)
+  
+  createurId      String            @db.VarChar(36)
+  createur        User              @relation(fields: [createurId], references: [id])
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([documentPlanId])
+  @@index([statut])
+  @@index([assigneA])
+}
+
+// ============================================
+// MODULE 4 : APPELS D'OFFRES
+// ============================================
+
+model Consultation {
+  id                    String             @id @default(uuid()) @db.VarChar(36)
+  chantierId            String             @db.VarChar(36)
+  chantier              Chantier           @relation(fields: [chantierId], references: [id], onDelete: Cascade)
+
+  reference             String             @unique @db.VarChar(100)
+  objet                 String             @db.Text
+  lot                   String?            @db.VarChar(100)
+  description           String?            @db.Text
+  
+  dateLimite            DateTime
+  dateOuverture         DateTime?
+  typePrix              TypePrix           @default(FERME)
+  
+  critPrix              Int                @default(60)
+  critDelai             Int                @default(20)
+  critTechnique         Int                @default(20)
+  
+  statut                StatutConsultation @default(BROUILLON)
+  
+  attributaireId        String?            @db.VarChar(36)
+  dateAttribution       DateTime?
+  motifAttribution      String?            @db.Text
+  
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  documents             DocumentConsultation[]
+  entreprisesConsultees ConsultationEntreprise[]
+
+  @@index([chantierId])
+  @@index([statut])
+}
+
+model DocumentConsultation {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  consultationId  String       @db.VarChar(36)
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  nom             String       @db.VarChar(255)
+  type            String       @db.VarChar(50)
+  description     String?      @db.Text
+  fichierUrl      String       @db.VarChar(500)
+  tailleFichier   Int
+  obligatoire     Boolean      @default(false)
+  
+  createdAt       DateTime     @default(now())
+
+  @@index([consultationId])
+}
+
+model ConsultationEntreprise {
+  id              String           @id @default(uuid()) @db.VarChar(36)
+  consultationId  String           @db.VarChar(36)
+  consultation    Consultation     @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  sousTraitantId  String           @db.VarChar(36)
+  sousTraitant    SousTraitant     @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade)
+
+  dateEnvoi       DateTime?
+  dateLecture     DateTime?
+  dateReponse     DateTime?
+  statut          StatutReponseAO  @default(NON_ENVOYE)
+  
+  nbRelances      Int              @default(0)
+  derniereRelance DateTime?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  offre           OffreAO?
+
+  @@unique([consultationId, sousTraitantId])
+  @@index([consultationId])
+  @@index([statut])
+}
+
+model OffreAO {
+  id                       String                 @id @default(uuid()) @db.VarChar(36)
+  consultationEntrepriseId String                 @unique @db.VarChar(36)
+  consultationEntreprise   ConsultationEntreprise @relation(fields: [consultationEntrepriseId], references: [id], onDelete: Cascade)
+
+  montantHT                Decimal                @db.Decimal(15, 2)
+  montantTTC               Decimal?               @db.Decimal(15, 2)
+  delaiExecution           Int?
+  validiteOffre            Int?
+  
+  observations             String?                @db.Text
+  variantes                String?                @db.Text
+  
+  fichierOffreUrl          String?                @db.VarChar(500)
+  fichierDPGFUrl           String?                @db.VarChar(500)
+  fichierMemTechUrl        String?                @db.VarChar(500)
+  
+  notePrix                 Float?
+  noteDelai                Float?
+  noteTechnique            Float?
+  noteGlobale              Float?
+  
+  createdAt                DateTime               @default(now())
+}
+
+// ============================================
+// CRM FOURNISSEURS
+// ============================================
+
+model NoteFournisseur {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  sousTraitantId  String       @db.VarChar(36)
+  sousTraitant    SousTraitant @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade)
+
+  contenu         String       @db.Text
+  auteurId        String       @db.VarChar(36)
+  auteur          User         @relation(fields: [auteurId], references: [id])
+  
+  createdAt       DateTime     @default(now())
+
+  @@index([sousTraitantId])
+}
+
+model EvaluationFournisseur {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  sousTraitantId  String       @db.VarChar(36)
+  sousTraitant    SousTraitant @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade)
+
+  chantierId      String?      @db.VarChar(36)
+  marcheRef       String?      @db.VarChar(100)
+  
+  noteQualite     Int
+  noteDelai       Int
+  noteRelation    Int
+  notePrix        Int?
+  noteMoyenne     Float
+  
+  commentaire     String?      @db.Text
+  recommande      Boolean      @default(true)
+  
+  auteurId        String       @db.VarChar(36)
+  auteur          User         @relation(fields: [auteurId], references: [id])
+  
+  createdAt       DateTime     @default(now())
+
+  @@index([sousTraitantId])
+}
+
+// ============================================
+// SYSTÈME DE NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  userId          String   @db.VarChar(36)
+  
+  type            String   @db.VarChar(100)
+  titre           String   @db.VarChar(255)
+  message         String   @db.Text
+  
+  entiteType      String?  @db.VarChar(50)
+  entiteId        String?  @db.VarChar(36)
+  lienUrl         String?  @db.VarChar(500)
+  
+  lue             Boolean  @default(false)
+  dateLecture     DateTime?
+  
+  createdAt       DateTime @default(now())
+
+  @@index([userId, lue])
+  @@index([createdAt])
+}
+
+// ============================================
+// PARAMÈTRES & CONFIGURATION
+// ============================================
+
+model Parametre {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  entrepriseId    String?  @db.VarChar(36)
+  
+  cle             String   @db.VarChar(100)
+  valeur          String   @db.Text
+  type            String   @default("string") @db.VarChar(50)
+  description     String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([entrepriseId, cle])
+}
+
+// ============================================
+// SYSTÈME DE FEATURE FLAGS
+// ============================================
+
+model FeatureFlag {
+  id              String          @id @default(uuid()) @db.VarChar(36)
+  entrepriseId    String?         @db.VarChar(36)
+  
+  code            String          @db.VarChar(100)
+  nom             String          @db.VarChar(255)
+  description     String?         @db.Text
+  
+  category        FeatureCategory @default(FEATURE)
+  platform        FeaturePlatform @default(ALL)
+  
+  enabled         Boolean         @default(true)
+  enabledDesktop  Boolean         @default(true)
+  enabledMobile   Boolean         @default(true)
+  enabledWeb      Boolean         @default(true)
+  
+  dependsOn       String?         @db.Text // JSON array
+  allowedRoles    String?         @db.Text // JSON array
+  
+  config          String?         @db.Text // JSON
+  
+  version         String?         @db.VarChar(50)
+  deprecated      Boolean         @default(false)
+  deprecatedMsg   String?         @db.Text
+  
+  ordre           Int             @default(0)
+  icone           String?         @db.VarChar(50)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([entrepriseId, code])
+  @@index([category])
+  @@index([enabled])
+}

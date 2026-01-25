@@ -1,0 +1,175 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# 🏗️ BTP CONNECT v9.3.0 - Docker Compose PRODUCTION
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════
+  # MySQL Database
+  # ════════════════════════════════════════════════════════════════════════════
+  mysql:
+    image: mysql:8.0
+    container_name: btpconnect-mysql-prod
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-btp_connect}
+      MYSQL_USER: ${MYSQL_USER:-btpuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Required}
+    ports:
+      - "127.0.0.1:3306:3306"  # Localhost only for security
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+      --innodb_buffer_pool_size=512M
+      --innodb_log_file_size=128M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - btpconnect-internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Backend API
+  # ════════════════════════════════════════════════════════════════════════════
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: btpconnect-api-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: mysql://${MYSQL_USER:-btpuser}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-btp_connect}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Required}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      METRICS_API_KEY: ${METRICS_API_KEY:-}
+      # ⚠️ NEVER set AUTH_BYPASS=1 in production!
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - btpconnect-internal
+      - btpconnect-public
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Nginx Reverse Proxy (Optional)
+  # ════════════════════════════════════════════════════════════════════════════
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: btpconnect-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - btpconnect-public
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - with-nginx  # docker-compose --profile with-nginx up
+
+# ════════════════════════════════════════════════════════════════════════════
+# Networks
+# ════════════════════════════════════════════════════════════════════════════
+networks:
+  btpconnect-internal:
+    driver: bridge
+    internal: true  # No external access
+  btpconnect-public:
+    driver: bridge
+
+# ════════════════════════════════════════════════════════════════════════════
+# Volumes
+# ════════════════════════════════════════════════════════════════════════════
+volumes:
+  mysql_data:
+    driver: local
+  nginx_cache:
+    driver: local
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEPLOYMENT:
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 1. Create .env from template:
+#    cp .env.example .env
+#    nano .env  # Set secure passwords (use: openssl rand -base64 32)
+#
+# 2. Start services:
+#    docker-compose -f docker-compose.prod.yml up -d
+#
+# 3. Run migrations:
+#    docker-compose -f docker-compose.prod.yml exec api npx prisma migrate deploy
+#
+# 4. Seed database (first time):
+#    docker-compose -f docker-compose.prod.yml exec api npx tsx prisma/seed.ts
+#
+# 5. View logs:
+#    docker-compose -f docker-compose.prod.yml logs -f api
+#
+# 6. Backup database:
+#    docker-compose -f docker-compose.prod.yml exec mysql \
+#      mysqldump -u root -p btp_connect > backup_$(date +%Y%m%d).sql
+#
+# ══════════════════════════════════════════════════════════════════════════════

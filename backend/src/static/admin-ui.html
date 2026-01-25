@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BTP Connect – Admin UI</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; max-width: 1100px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    input, button { padding: 10px 12px; font-size: 14px; }
+    button { cursor: pointer; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .small { color: #666; font-size: 12px; }
+    pre { background: #f7f7f7; padding: 12px; border-radius: 10px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>🏗️ BTP Connect – Admin UI (sans outil tiers)</h1>
+  <p class="small">Cette page te permet de manipuler la base PostgreSQL via l’API (auth + export/import) avec des boutons simples.</p>
+
+  <div class="card">
+    <h2>1) Connexion</h2>
+    <div class="row">
+      <button id="btnSeed">Créer compte admin (seed)</button>
+      <input id="email" value="admin@btpconnect.local" />
+      <input id="password" type="password" value="Admin123!" />
+      <button id="btnLogin">Login</button>
+    </div>
+    <p class="small">Le login enregistre l’accessToken et le refreshToken dans le navigateur (localStorage).</p>
+    <pre id="authOut"></pre>
+  </div>
+
+  <div class="card">
+    <h2>2) Exports CSV</h2>
+    <div class="row">
+      <button id="exportSt">⬇️ Export Sous-traitants</button>
+      <button id="exportCh">⬇️ Export Chantiers</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3) Imports CSV</h2>
+    <p class="small">Format attendu Sous-traitants: nom;siret;metier;email;tel;ville;note</p>
+    <div class="row">
+      <input id="fileSt" type="file" />
+      <button id="importSt">⬆️ Import Sous-traitants</button>
+    </div>
+    <hr />
+    <p class="small">Format attendu Chantiers: nom;client;adresse;montant;statut</p>
+    <div class="row">
+      <input id="fileCh" type="file" />
+      <button id="importCh">⬆️ Import Chantiers</button>
+    </div>
+    <pre id="importOut"></pre>
+  </div>
+
+  <div class="card">
+    <h2>4) Refresh token (si l’accessToken expire)</h2>
+    <div class="row">
+      <button id="btnRefresh">🔁 Refresh accessToken</button>
+      <button id="btnLogout">🚪 Logout</button>
+    </div>
+    <pre id="refreshOut"></pre>
+  </div>
+
+<script>
+  const api = location.origin;
+  const $ = (id) => document.getElementById(id);
+
+  function getTokens() {
+    return {
+      accessToken: localStorage.getItem("accessToken"),
+      refreshToken: localStorage.getItem("refreshToken"),
+    };
+  }
+
+  function setTokens(accessToken, refreshToken) {
+    if (accessToken) localStorage.setItem("accessToken", accessToken);
+    if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+  }
+
+  async function seed() {
+    const r = await fetch(api + "/auth/seed", { method: "POST" });
+    const j = await r.json();
+    $("authOut").textContent = JSON.stringify(j, null, 2);
+  }
+
+  async function login() {
+    const body = { email: $("email").value, password: $("password").value };
+    const r = await fetch(api + "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    $("authOut").textContent = JSON.stringify(j, null, 2);
+    if (j.accessToken && j.refreshToken) setTokens(j.accessToken, j.refreshToken);
+  }
+
+  function download(url) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.click();
+  }
+
+  async function exportCsv(path) {
+    const { accessToken } = getTokens();
+    if (!accessToken) return alert("Tu dois te connecter d'abord.");
+    download(api + path + "?t=" + Date.now());
+  }
+
+  async function importCsv(path, fileInputId) {
+    const { accessToken } = getTokens();
+    if (!accessToken) return alert("Tu dois te connecter d'abord.");
+    const file = $(fileInputId).files[0];
+    if (!file) return alert("Sélectionne un fichier CSV.");
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const r = await fetch(api + path, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + accessToken },
+      body: fd
+    });
+    const j = await r.json();
+    $("importOut").textContent = JSON.stringify(j, null, 2);
+  }
+
+  async function refresh() {
+    const { refreshToken } = getTokens();
+    if (!refreshToken) return alert("Pas de refreshToken. Fais login d'abord.");
+    const r = await fetch(api + "/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    const j = await r.json();
+    $("refreshOut").textContent = JSON.stringify(j, null, 2);
+    if (j.accessToken && j.refreshToken) setTokens(j.accessToken, j.refreshToken);
+  }
+
+  async function logout() {
+    const { refreshToken } = getTokens();
+    if (refreshToken) {
+      await fetch(api + "/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    $("refreshOut").textContent = "Logout OK";
+  }
+
+  $("btnSeed").onclick = seed;
+  $("btnLogin").onclick = login;
+  $("exportSt").onclick = () => exportCsv("/admin/export/st.csv");
+  $("exportCh").onclick = () => exportCsv("/admin/export/chantiers.csv");
+  $("importSt").onclick = () => importCsv("/admin/import/st", "fileSt");
+  $("importCh").onclick = () => importCsv("/admin/import/chantiers", "fileCh");
+  $("btnRefresh").onclick = refresh;
+  $("btnLogout").onclick = logout;
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "name": "btp-connect-api",
+  "version": "9.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:studio": "npx prisma studio",
+    "prisma:seed": "npx tsx prisma/seed.ts",
+    "db:reset": "npx prisma migrate reset --force && npm run prisma:seed",
+    "test": "bash scripts/qa-tests.sh",
+    "test:qa": "bash scripts/qa-tests.sh",
+    "lint": "eslint . --ext .ts",
+    "security:audit": "npm audit",
+    "security:fix": "npm audit fix",
+    "security:fix-force": "npm audit fix --force"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.5.0",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/jwt": "^7.2.4",
+    "@fastify/multipart": "^7.7.3",
+    "@fastify/rate-limit": "^8.1.1",
+    "@fastify/swagger": "^8.15.0",
+    "@fastify/swagger-ui": "^3.1.0",
+    "@prisma/client": "^5.18.0",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "nodemailer": "^6.9.14",
+    "pdfkit": "^0.15.0",
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.14.10",
+    "@types/nodemailer": "^6.4.15",
+    "@types/pdfkit": "^0.13.4",
+    "@types/uuid": "^9.0.8",
+    "eslint": "^9.9.0",
+    "prisma": "^5.18.0",
+    "tsx": "^4.16.5",
+    "typescript": "^5.5.4"
+  }
+}

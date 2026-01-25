@@ -1,0 +1,104 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# 🏗️ BTP CONNECT v9.3.0 - Docker Compose (Développement)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# ⚠️  Ce fichier est pour le DÉVELOPPEMENT uniquement
+#     Pour la production, utilisez docker-compose.prod.yml
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════
+  # MySQL Database
+  # ════════════════════════════════════════════════════════════════════════════
+  mysql:
+    image: mysql:8.0
+    container_name: btpconnect-mysql-dev
+    restart: unless-stopped
+    environment:
+      # ⚠️ Ces variables DOIVENT être définies dans .env
+      # Copier .env.example vers .env et modifier les valeurs
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Créer .env avec MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-btp_connect}
+      MYSQL_USER: ${MYSQL_USER:-btpuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Créer .env avec MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - btpconnect-dev
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # phpMyAdmin (Optionnel - Outils de développement)
+  # ════════════════════════════════════════════════════════════════════════════
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: btpconnect-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: ${MYSQL_USER:-btpuser}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - btpconnect-dev
+    profiles:
+      - tools  # Démarrer avec: docker-compose --profile tools up
+
+networks:
+  btpconnect-dev:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+
+# ══════════════════════════════════════════════════════════════════════════════
+# UTILISATION:
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 1. Créer le fichier .env:
+#    cp .env.example .env
+#    # Éditer .env avec vos valeurs
+#
+# 2. Démarrer MySQL:
+#    docker-compose up -d mysql
+#
+# 3. Vérifier que MySQL est prêt:
+#    docker-compose logs -f mysql
+#
+# 4. Appliquer les migrations Prisma:
+#    cd backend && npx prisma migrate dev
+#
+# 5. Seed la base de données:
+#    cd backend && npx prisma db seed
+#
+# 6. Optionnel - Démarrer phpMyAdmin:
+#    docker-compose --profile tools up -d phpmyadmin
+#    → Accès: http://localhost:8080
+#
+# 7. Arrêter les services:
+#    docker-compose down
+#
+# 8. Supprimer les données:
+#    docker-compose down -v
+#
+# ══════════════════════════════════════════════════════════════════════════════
