@@ -1,61 +1,39 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import "@/App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 /**
  * BTP Connect v9.4 - Application de gestion BTP
- * Frontend intégré via iframe pointant vers le backend FastAPI
+ * Redirige vers l'interface BTP Connect
  */
 function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const iframeRef = useRef(null);
 
   useEffect(() => {
-    // Vérifier que le backend est accessible
-    const checkBackend = async () => {
+    // Auto-seed les données de démo
+    const init = async () => {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/health`);
-        if (response.ok) {
-          setLoading(false);
-        } else {
-          setError("Backend non disponible");
-        }
+        // Vérifier le backend
+        const healthRes = await fetch(`${BACKEND_URL}/api/health`);
+        if (!healthRes.ok) throw new Error("Backend non disponible");
+        
+        // Seed les données
+        await fetch(`${BACKEND_URL}/api/seed`, { method: 'POST' });
+        console.log("✅ BTP Connect initialisé");
+        
+        // Rediriger vers l'interface BTP Connect
+        window.location.href = "/btp-connect.html";
       } catch (e) {
-        console.error("Backend check failed:", e);
-        setError("Impossible de se connecter au backend");
+        console.error("Erreur initialisation:", e);
+        setError(e.message);
         setLoading(false);
       }
     };
     
-    checkBackend();
-    
-    // Auto-seed les données de démo
-    const seedData = async () => {
-      try {
-        await fetch(`${BACKEND_URL}/api/seed`, { method: 'POST' });
-        console.log("✅ Données de démo initialisées");
-      } catch (e) {
-        console.log("Seed déjà effectué ou erreur:", e);
-      }
-    };
-    seedData();
+    init();
   }, []);
-
-  // Style pour l'iframe plein écran
-  const iframeStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    border: 'none',
-    margin: 0,
-    padding: 0,
-    overflow: 'hidden',
-    zIndex: 999999
-  };
 
   // Style pour le loader
   const loaderStyle = {
@@ -74,11 +52,10 @@ function App() {
       <div style={loaderStyle}>
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>🏗️ BTP Connect</h1>
-          <p style={{ color: '#f87171' }}>{error}</p>
+          <p style={{ color: '#f87171', marginBottom: '1rem' }}>{error}</p>
           <button 
             onClick={() => window.location.reload()} 
             style={{
-              marginTop: '1rem',
               padding: '0.75rem 1.5rem',
               background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
               border: 'none',
@@ -95,42 +72,27 @@ function App() {
     );
   }
 
-  if (loading) {
-    return (
-      <div style={loaderStyle}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            border: '4px solid rgba(139, 92, 246, 0.2)',
-            borderTop: '4px solid #8b5cf6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1rem'
-          }} />
-          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏗️ BTP Connect</h1>
-          <p style={{ color: '#94a3b8' }}>Chargement de l'application...</p>
-        </div>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
-    <iframe
-      ref={iframeRef}
-      src={`${BACKEND_URL}/`}
-      style={iframeStyle}
-      title="BTP Connect"
-      allow="fullscreen"
-      onLoad={() => {
-        console.log("✅ BTP Connect chargé");
-      }}
-    />
+    <div style={loaderStyle}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          width: '60px',
+          height: '60px',
+          border: '4px solid rgba(139, 92, 246, 0.2)',
+          borderTop: '4px solid #8b5cf6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          margin: '0 auto 1rem'
+        }} />
+        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏗️ BTP Connect</h1>
+        <p style={{ color: '#94a3b8' }}>Initialisation de l'application...</p>
+      </div>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
   );
 }
 
