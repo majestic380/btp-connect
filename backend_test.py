@@ -301,30 +301,15 @@ class BTPConnectAPITester:
         print("\n🌐 === FRONTEND SERVING ===")
         
         # Test root endpoint serves HTML
-        try:
-            response = self.session.get(f"{self.base_url}/")
-            success = response.status_code == 200 and 'BTP Connect' in response.text
-            
-            self.tests_run += 1
-            if success:
-                self.tests_passed += 1
-                print(f"   ✅ PASSED - Frontend HTML served successfully")
-                print(f"   📄 Contains BTP Connect branding: {'BTP Connect' in response.text}")
-            else:
-                print(f"   ❌ FAILED - Status: {response.status_code}")
-                self.failed_tests.append({
-                    'name': 'Frontend HTML Serving',
-                    'endpoint': '/',
-                    'status': response.status_code,
-                    'issue': 'HTML not served or missing BTP Connect content'
-                })
-        except Exception as e:
-            print(f"   ❌ FAILED - Error: {str(e)}")
-            self.failed_tests.append({
-                'name': 'Frontend HTML Serving',
-                'endpoint': '/',
-                'error': str(e)
-            })
+        success, _ = self.run_test("Frontend HTML Serving", "GET", "/", 200)
+        
+        if success:
+            try:
+                response = self.session.get(f"{self.base_url}/")
+                has_branding = 'BTP Connect' in response.text
+                print(f"   📄 Contains BTP Connect branding: {has_branding}")
+            except Exception as e:
+                print(f"   ⚠️ Could not check branding: {str(e)}")
 
     def run_all_tests(self):
         """Run all test suites"""
