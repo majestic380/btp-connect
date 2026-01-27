@@ -1,0 +1,76 @@
+{
+  "name": "btp-connect",
+  "version": "9.3.0",
+  "description": "BTP Connect - Application de gestion BTP standalone avec Feature Flags",
+  "author": "BTP Connect",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dev:silent": "electron . --silent",
+    "pack": "electron-builder --win --x64 --dir",
+    "build": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable --x64",
+    "setup:backend": "cd backend && npm install && npm run prisma:generate && npm run prisma:migrate && npm run build",
+    "dev:backend": "cd backend && npm run dev",
+    "qa:standalone:local": "powershell -ExecutionPolicy Bypass -File .\\qa\\standalone_modes.ps1 -Mode local",
+    "qa:standalone:lan": "powershell -ExecutionPolicy Bypass -File .\\qa\\standalone_modes.ps1 -Mode lan",
+    "qa:standalone:cloud": "powershell -ExecutionPolicy Bypass -File .\\qa\\standalone_modes.ps1 -Mode cloud -BackendPort 3001",
+    "qa:standalone:all": "npm run qa:standalone:local && npm run qa:standalone:lan && npm run qa:standalone:cloud",
+    "dist:win": "electron-builder --win --x64",
+    "dist:portable": "electron-builder --win portable",
+    "dist:mac": "electron-builder --mac --x64",
+    "dist": "electron-builder --win --x64 --mac --x64",
+    "release:checksums:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\generate-checksums.ps1 -DistDir .\\dist",
+    "release:checksums:mac": "bash ./scripts/generate-checksums.sh ./dist"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.btpconnect.app",
+    "productName": "BTP Connect",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "package.json",
+      "backend/dist/**/*",
+      "backend/prisma/schema.prisma",
+      "backend/prisma/migrations/**/*",
+      "backend/package.json",
+      "backend/.env.production.example",
+      "backend/src/static/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/.env.production.example",
+        "to": ".env.example"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "src/icon.ico"
+    },
+    "portable": {
+      "artifactName": "BTP-Connect-Portable-${version}.exe"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "artifactName": "BTP-Connect-${version}-${os}-${arch}.${ext}"
+  }
+}
